@@ -1,20 +1,24 @@
-#!/usr/bin/env python3
-"""Entry program for make.fun bounty news-image-20261121.
+"""Entry program for the 21 November 2026 world-news image.
 
-Writes the image that sums up the world news of Friday, 21 November 2026
-to /output/entry.png. Standard library only, no network: it copies the
-entry.png held in this repository (drawn by draw_entry.py) to the output
-directory. Outside the grader's container, MAKEFUN_OUTPUT_DIR stands in
-for /output:
-
-    mkdir -p out && MAKEFUN_OUTPUT_DIR=out python3 main.py
+Copies the finished picture, entry.png, from this repository into the
+directory make.fun names in MAKEFUN_OUTPUT_DIR (or /output by default),
+under the same name. Standard library only; no network, no other files.
 """
 import os
 import shutil
+import sys
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-OUT = os.environ.get("MAKEFUN_OUTPUT_DIR", "/output")
 
-os.makedirs(OUT, exist_ok=True)
-shutil.copyfile(os.path.join(HERE, "entry.png"),
-                os.path.join(OUT, "entry.png"))
+def main():
+    here = os.path.dirname(os.path.abspath(__file__))
+    source = os.path.join(here, "entry.png")
+    target_dir = os.environ.get("MAKEFUN_OUTPUT_DIR", "/output")
+    os.makedirs(target_dir, exist_ok=True)
+    target = os.path.join(target_dir, "entry.png")
+    shutil.copyfile(source, target)
+    print("wrote", target, os.path.getsize(target), "bytes")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

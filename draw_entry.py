@@ -1,238 +1,171 @@
-#!/usr/bin/env python3
-"""Draw entry.png: one image summing up the world news of Friday, 21 Nov 2026.
+"""Draw the 21 November 2026 world-news image.
 
-Build tool only (run locally with PIL). The graded program is main.py,
-which copies the finished entry.png to /output/entry.png with stdlib only.
-Layout: 1024x1024, navy header with the date, then a 2x3 grid of stories,
-each with a hand-drawn pictogram, a headline and a short factual label.
+A single 1024x1024 PNG: a dark teal banner with the date, then six
+panels in two columns and three rows. Each panel has a small hand-drawn
+pictogram on a coloured disc, a headline and two short factual lines.
+Run:  python3 draw_entry.py   (writes entry.png next to this file)
 """
 import os
 from PIL import Image, ImageDraw, ImageFont
 
 W, H = 1024, 1024
-BASE = os.path.dirname(os.path.abspath(__file__))
+BANNER_H = 150
+PANEL_W, PANEL_H = 492, 256
+GAP = 12
+MARGIN = 16
 
-SERIF_B = "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf"
-SANS_B = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
-SANS = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+TEAL = (13, 71, 80)
+TEAL_DARK = (8, 48, 55)
+PAPER = (244, 241, 232)
+INK = (24, 28, 32)
+GREY = (84, 90, 96)
+WHITE = (255, 255, 255)
+ACCENTS = [(176, 58, 44), (30, 96, 145), (122, 62, 140),
+           (196, 128, 20), (36, 122, 74), (16, 88, 110)]
 
 
-def font(path, size):
-    return ImageFont.truetype(path, size)
+def font(size, bold=False):
+    name = "DejaVuSans-Bold.ttf" if bold else "DejaVuSans.ttf"
+    return ImageFont.truetype("/usr/share/fonts/truetype/dejavu/" + name, size)
 
 
-def wrap(draw, text, fnt, max_w):
+def wrap(draw, text, fnt, width):
+    """Split text into lines that fit `width` pixels."""
     words, lines, cur = text.split(), [], ""
-    for w in words:
-        t = (cur + " " + w).strip()
-        if draw.textlength(t, font=fnt) <= max_w:
-            cur = t
+    for word in words:
+        trial = (cur + " " + word).strip()
+        if draw.textlength(trial, font=fnt) <= width:
+            cur = trial
         else:
             if cur:
                 lines.append(cur)
-            cur = w
+            cur = word
     if cur:
         lines.append(cur)
     return lines
 
 
-def pic_tanker(d, x, y, s):
-    d.rectangle([x, y + s * 0.62, x + s, y + s * 0.78], fill="#1F6FB2")
-    d.rectangle([x, y + s * 0.78, x + s, y + s * 0.86], fill="#155A8A")
-    d.polygon([(x + s * 0.08, y + s * 0.62), (x + s * 0.92, y + s * 0.62),
-               (x + s * 0.84, y + s * 0.78), (x + s * 0.16, y + s * 0.78)],
-              fill="#263238")
-    for i, c in enumerate(("#E8B84B", "#C0392B", "#2E7D6B")):
-        d.rectangle([x + s * (0.18 + i * 0.22), y + s * 0.38,
-                     x + s * (0.36 + i * 0.22), y + s * 0.60], fill=c)
-    d.rectangle([x + s * 0.70, y + s * 0.30, x + s * 0.86, y + s * 0.60],
-                fill="#ECEFF1")
-    d.polygon([(x + s * 0.22, y + s * 0.38), (x + s * 0.30, y + s * 0.10),
-               (x + s * 0.38, y + s * 0.38)], fill="#F57C00")
+def draw_flame(d, cx, cy, r):
+    d.polygon([(cx, cy - r), (cx + r * 0.75, cy + r * 0.4),
+               (cx + r * 0.3, cy + r * 0.9), (cx - r * 0.3, cy + r * 0.9),
+               (cx - r * 0.75, cy + r * 0.4)], fill=(255, 214, 90))
+    d.ellipse([cx - r * 0.35, cy - r * 0.1, cx + r * 0.35, cy + r * 0.7],
+              fill=(230, 90, 30))
 
 
-def pic_bitcoin(d, x, y, s):
-    d.ellipse([x + s * 0.08, y + s * 0.06, x + s * 0.92, y + s * 0.90],
-              fill="#F7931A")
-    f = font(SANS_B, int(s * 0.52))
-    d.text((x + s * 0.5, y + s * 0.48), "B", font=f, fill="white",
-           anchor="mm")
-    d.line([(x + s * 0.06, y + s * 0.92), (x + s * 0.35, y + s * 0.72),
-            (x + s * 0.55, y + s * 0.84), (x + s * 0.94, y + s * 0.62)],
-           fill="#C0392B", width=6)
-    d.polygon([(x + s * 0.94, y + s * 0.62), (x + s * 0.80, y + s * 0.60),
-               (x + s * 0.94, y + s * 0.74)], fill="#C0392B")
+def draw_ship(d, cx, cy, r):
+    d.rectangle([cx - r, cy - r * 0.2, cx + r, cy + r * 0.25], fill=WHITE)
+    d.polygon([(cx - r, cy + r * 0.25), (cx + r, cy + r * 0.25),
+               (cx + r * 0.6, cy + r * 0.8), (cx - r * 0.6, cy + r * 0.8)],
+              fill=(210, 210, 210))
+    d.rectangle([cx - r * 0.1, cy - r, cx + r * 0.1, cy - r * 0.2], fill=WHITE)
+    d.polygon([(cx + r * 0.1, cy - r), (cx + r * 0.7, cy - r * 0.4),
+               (cx + r * 0.1, cy - r * 0.4)], fill=(255, 214, 90))
 
 
-def pic_badge(d, x, y, s):
-    d.polygon([(x + s * 0.5, y + s * 0.04), (x + s * 0.92, y + s * 0.22),
-               (x + s * 0.86, y + s * 0.72), (x + s * 0.5, y + s * 0.96),
-               (x + s * 0.14, y + s * 0.72), (x + s * 0.08, y + s * 0.22)],
-              fill="#B8860B")
-    d.polygon([(x + s * 0.5, y + s * 0.14), (x + s * 0.82, y + s * 0.28),
-               (x + s * 0.77, y + s * 0.68), (x + s * 0.5, y + s * 0.86),
-               (x + s * 0.23, y + s * 0.68), (x + s * 0.18, y + s * 0.28)],
-              fill="#F5D76E")
-    f = font(SANS_B, int(s * 0.30))
-    d.text((x + s * 0.5, y + s * 0.50), "*", font=f, fill="#7A5C00",
-           anchor="mm")
+def draw_rocket(d, cx, cy, r):
+    d.polygon([(cx, cy - r), (cx + r * 0.5, cy - r * 0.2),
+               (cx + r * 0.35, cy + r * 0.7), (cx - r * 0.35, cy + r * 0.7),
+               (cx - r * 0.5, cy - r * 0.2)], fill=WHITE)
+    d.ellipse([cx - r * 0.22, cy - r * 0.75, cx + r * 0.22, cy - r * 0.3],
+              fill=(255, 214, 90))
+    d.polygon([(cx - r * 0.35, cy + r * 0.7), (cx, cy + r * 1.05),
+               (cx + r * 0.35, cy + r * 0.7)], fill=(230, 90, 30))
 
 
-def pic_globe(d, x, y, s):
-    d.ellipse([x + s * 0.06, y + s * 0.06, x + s * 0.94, y + s * 0.94],
-              fill="#2E7D6B")
-    d.ellipse([x + s * 0.22, y + s * 0.20, x + s * 0.48, y + s * 0.42],
-              fill="#7CB342")
-    d.ellipse([x + s * 0.55, y + s * 0.52, x + s * 0.82, y + s * 0.78],
-              fill="#7CB342")
-    d.ellipse([x + s * 0.58, y + s * 0.16, x + s * 0.74, y + s * 0.30],
-              fill="#7CB342")
-    d.arc([x + s * 0.06, y + s * 0.06, x + s * 0.94, y + s * 0.94],
-          200, 340, fill="#E8B84B", width=5)
+def draw_coin(d, cx, cy, r):
+    d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=(255, 196, 60),
+              outline=(150, 100, 0), width=3)
+    d.text((cx, cy), "B", font=font(34), fill=(120, 70, 0), anchor="mm")
 
 
-def pic_card(d, x, y, s):
-    d.rounded_rectangle([x + s * 0.04, y + s * 0.18, x + s * 0.96,
-                         y + s * 0.82], radius=int(s * 0.08), fill="#283593")
-    d.rectangle([x + s * 0.04, y + s * 0.30, x + s * 0.96, y + s * 0.44],
-                fill="#1A237E")
-    d.rectangle([x + s * 0.12, y + s * 0.52, x + s * 0.30, y + s * 0.68],
-                fill="#E8B84B")
-    f = font(SANS_B, int(s * 0.30))
-    d.text((x + s * 0.62, y + s * 0.62), "10%", font=f, fill="white",
-           anchor="mm")
+def draw_leaf(d, cx, cy, r):
+    d.ellipse([cx - r, cy - r * 0.6, cx + r, cy + r * 0.6], fill=(60, 160, 90))
+    d.line([cx - r * 0.7, cy + r * 0.4, cx + r * 0.7, cy - r * 0.4],
+           fill=(20, 90, 50), width=4)
+    d.line([cx, cy, cx, cy + r * 0.9], fill=(110, 70, 20), width=4)
 
 
-def pic_storm(d, x, y, s):
-    d.ellipse([x + s * 0.10, y + s * 0.22, x + s * 0.45, y + s * 0.52],
-              fill="#607D8B")
-    d.ellipse([x + s * 0.35, y + s * 0.12, x + s * 0.72, y + s * 0.48],
-              fill="#78909C")
-    d.ellipse([x + s * 0.60, y + s * 0.26, x + s * 0.90, y + s * 0.54],
-              fill="#607D8B")
-    for i, xx in enumerate((0.20, 0.45, 0.68)):
-        d.line([(x + s * xx, y + s * 0.58), (x + s * (xx - 0.04),
-               y + s * 0.74)], fill="#1F6FB2", width=5)
-    d.polygon([(x + s * 0.52, y + s * 0.58), (x + s * 0.38, y + s * 0.82),
-               (x + s * 0.50, y + s * 0.82), (x + s * 0.42, y + s * 0.98),
-               (x + s * 0.62, y + s * 0.70), (x + s * 0.50, y + s * 0.70)],
-              fill="#F9A825")
+def draw_wave(d, cx, cy, r):
+    for i, y in enumerate((cy - r * 0.4, cy + r * 0.1, cy + r * 0.6)):
+        d.arc([cx - r, y - r * 0.35, cx + r, y + r * 0.35], 180, 360,
+              fill=WHITE if i % 2 == 0 else (160, 210, 230), width=5)
+    d.polygon([(cx - r * 0.5, cy - r), (cx + r * 0.5, cy - r),
+               (cx, cy - r * 0.3)], fill=(255, 214, 90))
 
 
-def pic_blast(d, x, y, s):
-    d.rectangle([x + s*0.08, y + s*0.62, x + s*0.92, y + s*0.86], fill="#37474F")
-    d.rectangle([x + s*0.20, y + s*0.42, x + s*0.36, y + s*0.62], fill="#78909C")
-    d.rectangle([x + s*0.60, y + s*0.42, x + s*0.76, y + s*0.62], fill="#78909C")
-    d.polygon([(x + s*0.50, y + s*0.04), (x + s*0.62, y + s*0.24), (x + s*0.78, y + s*0.30),
-               (x + s*0.64, y + s*0.44), (x + s*0.72, y + s*0.60), (x + s*0.50, y + s*0.52),
-               (x + s*0.28, y + s*0.60), (x + s*0.36, y + s*0.44), (x + s*0.22, y + s*0.30),
-               (x + s*0.38, y + s*0.24)], fill="#F57C00")
-    d.ellipse([x + s*0.40, y + s*0.28, x + s*0.60, y + s*0.48], fill="#F9A825")
+ICONS = [draw_flame, draw_ship, draw_rocket, draw_coin, draw_leaf, draw_wave]
 
-
-def pic_missile(d, x, y, s):
-    d.polygon([(x + s*0.50, y + s*0.06), (x + s*0.66, y + s*0.30), (x + s*0.62, y + s*0.66),
-               (x + s*0.38, y + s*0.66), (x + s*0.34, y + s*0.30)], fill="#455A64")
-    d.polygon([(x + s*0.34, y + s*0.30), (x + s*0.16, y + s*0.52), (x + s*0.36, y + s*0.46)], fill="#78909C")
-    d.polygon([(x + s*0.66, y + s*0.30), (x + s*0.84, y + s*0.52), (x + s*0.64, y + s*0.46)], fill="#78909C")
-    d.polygon([(x + s*0.44, y + s*0.66), (x + s*0.38, y + s*0.90), (x + s*0.50, y + s*0.78),
-               (x + s*0.62, y + s*0.90), (x + s*0.56, y + s*0.66)], fill="#F57C00")
-    d.ellipse([x + s*0.06, y + s*0.10, x + s*0.22, y + s*0.26], fill="#C0392B")
-    d.ellipse([x + s*0.78, y + s*0.70, x + s*0.94, y + s*0.86], fill="#C0392B")
-
-
-def pic_boat(d, x, y, s):
-    d.arc([x + s*0.04, y + s*0.55, x + s*0.96, y + s*0.95], 0, 180, fill="#1F6FB2", width=6)
-    d.line([(x + s*0.04, y + s*0.72), (x + s*0.96, y + s*0.72)], fill="#1F6FB2", width=5)
-    d.polygon([(x + s*0.18, y + s*0.62), (x + s*0.82, y + s*0.62), (x + s*0.70, y + s*0.42),
-               (x + s*0.30, y + s*0.42)], fill="#8D6E63")
-    d.rectangle([x + s*0.46, y + s*0.14, x + s*0.54, y + s*0.42], fill="#5D4037")
-    d.polygon([(x + s*0.54, y + s*0.14), (x + s*0.80, y + s*0.30), (x + s*0.54, y + s*0.34)], fill="#C0392B")
-    d.ellipse([x + s*0.70, y + s*0.10, x + s*0.86, y + s*0.26], fill="#F9A825")
-
-
-PANELS = [
-    ("MIDDLE EAST  \u2022  BAHRAIN", "#C0392B",
-     "Iran strikes US bases in Bahrain",
-     "Tehran says it hit US positions at al-Riffa and Awali. Bahrain says "
-     "a civilian plant was hit and set ablaze; no injuries reported.",
-     pic_blast),
-    ("MIDDLE EAST  \u2022  HORMUZ", "#1F6FB2",
-     "Two tankers hit in the Strait of Hormuz",
-     "UKMTO says two tankers were struck off Khasab, one in the "
-     "stern, one in the engine room. No casualties reported.",
-     pic_tanker),
-    ("EUROPE  \u2022  POLAND / UKRAINE", "#455A64",
-     "Russian missiles land in Poland",
-     "Two missiles and a drone came down in Poland as NATO drills ran. "
-     "NATO calls it a grave violation; a strike on Kryvyi Rih killed 2.",
-     pic_missile),
-    ("MARKETS  \u2022  CRYPTO", "#E67E22",
-     "Bitcoin crashes to $55k, then rebounds",
-     "BTC fell to $55,130, its lowest since Sept 2024, wiping out $2.67bn "
-     "of leveraged bets, before climbing back toward $60,000.",
-     pic_bitcoin),
-    ("CLIMATE  \u2022  COP31", "#2E7D6B",
-     "Climate talks spill into overtime",
-     "In Antalya, COP31 ran past its deadline with no deal, deadlocked "
-     "after a draft deal dropped all mention of fossil fuels.",
-     pic_globe),
-    ("AFRICA  \u2022  NIGERIA", "#37474F",
-     "Boat capsizes on way to a funeral",
-     "At least 24 people died when a boat carrying mourners sank in "
-     "Bayelsa state. Another 24 were rescued; a search went on.",
-     pic_boat),
+STORIES = [
+    ("BAHRAIN", "Iran strikes US bases in Bahrain",
+     "Tehran says it hit two US positions; a civilian industrial site",
+     "in Bahrain caught fire. No injuries; air defences intercepted more."),
+    ("STRAIT OF HORMUZ", "Two tankers hit off Oman",
+     "UK maritime agency: two tankers struck by projectiles near Khasab,",
+     "an hour apart. No casualties reported on either vessel."),
+    ("POLAND", "Russian missiles land in Poland",
+     "Two missiles and a drone came down during NATO drills; Warsaw calls",
+     "it a grave violation. A strike on Kryvyi Rih killed two people."),
+    ("MARKETS", "Bitcoin crashes to $55k, then rebounds",
+     "Bitcoin fell to $55,130, its lowest since September 2024, as $2.7bn",
+     "of leveraged bets were wiped out, then climbed back toward $60,000."),
+    ("CLIMATE", "COP31 talks spill into overtime",
+     "The UN climate summit in Antalya ran past its deadline with no deal,",
+     "deadlocked after a draft dropped all mention of fossil fuels."),
+    ("NIGERIA", "Boat capsizes on way to a funeral",
+     "At least 24 people died when a crowded boat sank in Bayelsa state;",
+     "24 more were rescued and the search for others went on."),
 ]
 
-def main():
-    img = Image.new("RGB", (W, H), "#F4F1EA")
+
+def build():
+    img = Image.new("RGB", (W, H), PAPER)
     d = ImageDraw.Draw(img)
+    # Banner
+    d.rectangle([0, 0, W, BANNER_H], fill=TEAL)
+    d.rectangle([0, BANNER_H - 6, W, BANNER_H], fill=(255, 196, 60))
+    d.text((MARGIN, 22), "Friday, 21 November 2026",
+           font=font(44, True), fill=WHITE)
+    d.text((MARGIN, 82), "Six stories that defined the day",
+           font=font(28), fill=(200, 225, 225))
+    d.text((W - MARGIN, 34), "WORLD NEWS", font=font(26, True),
+           fill=(255, 196, 60), anchor="ra")
+    d.text((W - MARGIN, 74), "One day, six stories", font=font(22),
+           fill=(200, 225, 225), anchor="ra")
 
-    # ---- header band
-    d.rectangle([0, 0, W, 148], fill="#0F2A43")
-    d.rectangle([0, 148, W, 154], fill="#E8B84B")
-    d.text((32, 22), "THE WORLD IN ONE IMAGE", font=font(SANS_B, 26),
-           fill="#E8B84B")
-    d.text((32, 52), "Friday, 21 November 2026", font=font(SERIF_B, 56),
-           fill="white")
-    d.text((32, 116), "Six stories that defined the day \u2014 from Bahrain to Bayelsa",
-           font=font(SANS, 24), fill="#B0C4D8")
-
-    # ---- grid: 2 cols x 3 rows
-    gx, gy = 16, 170
-    gap = 12
-    pw = (W - 2 * gx - gap) // 2
-    ph = (H - gy - 44 - 2 * gap) // 3
-    for i, (tag, colour, head, body, pic) in enumerate(PANELS):
+    for i, (tag, head, line1, line2) in enumerate(STORIES):
         col, row = i % 2, i // 2
-        x0 = gx + col * (pw + gap)
-        y0 = gy + row * (ph + gap)
-        d.rounded_rectangle([x0, y0, x0 + pw, y0 + ph], radius=14,
-                            fill="white", outline="#D8D2C4", width=2)
-        d.rectangle([x0, y0 + 12, x0 + 8, y0 + ph - 12], fill=colour)
-        tx = x0 + 24
-        d.text((tx, y0 + 16), tag, font=font(SANS_B, 20), fill=colour)
-        lines = wrap(d, head, font(SANS_B, 26), pw - 24 - 118)
-        yy = y0 + 48
-        for ln in lines[:3]:
-            d.text((tx, yy), ln, font=font(SANS_B, 26), fill="#1A1A1A")
-            yy += 31
-        blines = wrap(d, body, font(SANS, 20), pw - 24 - 118)
-        yy += 6
-        for ln in blines[:4]:
-            d.text((tx, yy), ln, font=font(SANS, 20), fill="#37474F")
-            yy += 26
-        pic(d, x0 + pw - 118, y0 + 52, 96)
+        x = MARGIN + col * (PANEL_W + GAP)
+        y = BANNER_H + GAP + row * (PANEL_H + GAP)
+        accent = ACCENTS[i]
+        d.rounded_rectangle([x, y, x + PANEL_W, y + PANEL_H], radius=14,
+                            fill=WHITE, outline=accent, width=3)
+        d.rectangle([x, y, x + PANEL_W, y + 8], fill=accent)
+        # Pictogram disc
+        cx, cy = x + 52, y + 78
+        d.ellipse([cx - 38, cy - 38, cx + 38, cy + 38], fill=accent)
+        ICONS[i](d, cx, cy, 24)
+        # Tag + headline
+        tx = x + 104
+        d.text((tx, y + 26), tag, font=font(19, True), fill=accent)
+        for j, ln in enumerate(wrap(d, head, font(24, True), PANEL_W - 120)):
+            d.text((tx, y + 54 + j * 30), ln, font=font(24, True), fill=INK)
+        # Body lines
+        body_y = y + 132
+        for j, ln in enumerate(wrap(d, line1, font(19), PANEL_W - 32)):
+            d.text((x + 16, body_y + j * 25), ln, font=font(19), fill=INK)
+        body_y += len(wrap(d, line1, font(19), PANEL_W - 32)) * 25 + 2
+        for j, ln in enumerate(wrap(d, line2, font(19), PANEL_W - 32)):
+            d.text((x + 16, body_y + j * 25), ln, font=font(19), fill=GREY)
 
-    # ---- footer
-    d.text((32, H - 34),
-           "Reported 21 Nov 2026  •  Sources: Reuters, AP, UKMTO, Coinglass, AFP",
-           font=font(SANS, 18), fill="#78909C")
-
-    out = os.path.join(BASE, "entry.png")
+    # Footer, below the panels
+    fy = H - 18
+    d.text((W // 2, fy), "Events of 21 November 2026  •  Sources: Reuters, AP, AFP, UKMTO, NEMA",
+           font=font(17), fill=GREY, anchor="mm")
+    out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "entry.png")
     img.save(out, "PNG", optimize=True)
-    print(out, img.size, os.path.getsize(out), "bytes")
+    print("wrote", out, img.size, os.path.getsize(out), "bytes")
 
 
 if __name__ == "__main__":
-    main()
+    build()
